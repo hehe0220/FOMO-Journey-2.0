@@ -1,0 +1,896 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FOMO Journey｜百歲人生配置系統</title>
+<style>
+  :root{
+    --navy-deep:#081522;
+    --navy:#0B1F33;
+    --navy-card:#102B45;
+    --green:#00A876;
+    --green-soft:#5FD9AF;
+    --white:#F4F7F6;
+    --grey:#9FB3C2;
+    --amber:#E8A458;
+    --line:rgba(244,247,246,0.10);
+    --serif:'Noto Serif TC','Source Han Serif TC','Georgia',serif;
+    --sans:'Noto Sans TC','Helvetica Neue',Arial,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html,body{
+    background:radial-gradient(circle at 20% -10%, #103450 0%, var(--navy-deep) 55%);
+    color:var(--white);
+    font-family:var(--sans);
+    min-height:100%;
+    -webkit-font-smoothing:antialiased;
+  }
+  button{font-family:var(--sans);}
+  #app{
+    max-width:780px;
+    margin:0 auto;
+    min-height:100vh;
+    display:flex;
+    flex-direction:column;
+    position:relative;
+  }
+
+  /* ---------- Timeline rail ---------- */
+  .rail-wrap{
+    position:sticky;
+    top:0;
+    z-index:20;
+    background:linear-gradient(180deg, rgba(8,21,34,0.97) 70%, rgba(8,21,34,0));
+    padding:18px 24px 28px;
+  }
+  .rail{ position:relative; height:34px; }
+  .rail-line{
+    position:absolute; top:50%; left:0; right:0; height:2px;
+    background:var(--line); transform:translateY(-50%);
+  }
+  .rail-fill{
+    position:absolute; top:50%; left:0; height:2px;
+    background:var(--green); transform:translateY(-50%);
+    transition:width .6s cubic-bezier(.4,0,.2,1);
+  }
+  .rail-dots{ position:relative; display:flex; justify-content:space-between; }
+  .rail-dot{
+    width:10px;height:10px;border-radius:50%;
+    background:var(--navy-card); border:1.5px solid var(--line);
+    position:relative; transition:all .4s; flex-shrink:0;
+  }
+  .rail-dot.done{background:var(--green);border-color:var(--green);}
+  .rail-dot.now{
+    background:var(--navy-deep);border-color:var(--green-soft);
+    box-shadow:0 0 0 4px rgba(95,217,175,0.18);width:12px;height:12px;
+  }
+  .rail-dot::after{
+    content:attr(data-age);
+    position:absolute; top:16px; left:50%; transform:translateX(-50%);
+    font-size:9px; color:var(--grey); white-space:nowrap; letter-spacing:.02em;
+    max-width:60px; text-align:center;
+  }
+  @media (max-width:600px){
+    .rail-dot::after{ font-size:8px; }
+  }
+
+  /* ---------- Stage screens ---------- */
+  .stage{
+    flex:1; display:flex; flex-direction:column;
+    padding:8px 28px 56px; animation:fadeUp .5s ease both;
+  }
+  @keyframes fadeUp{
+    from{opacity:0; transform:translateY(14px);}
+    to{opacity:1; transform:translateY(0);}
+  }
+  .stage-eyebrow{
+    font-size:13px; color:var(--green-soft); letter-spacing:.12em;
+    text-transform:uppercase; margin-top:18px;
+  }
+  .stage-age{
+    font-family:var(--serif);
+    font-size:clamp(32px,8.5vw,52px);
+    line-height:1.15; margin-top:6px; font-weight:600;
+  }
+  .stage-age small{
+    display:block; font-family:var(--sans); font-size:14px; font-weight:400;
+    color:var(--grey); margin-top:6px; letter-spacing:.02em;
+  }
+  .stage-scene{
+    margin-top:18px; border-radius:18px; overflow:hidden;
+    border:1px solid var(--line); position:relative; min-height:140px;
+    display:flex; align-items:center; justify-content:center;
+    background:linear-gradient(135deg, var(--navy-card), var(--navy));
+  }
+  .stage-scene .glyph{font-size:54px;filter:drop-shadow(0 6px 18px rgba(0,168,118,.25));}
+  .stage-scene::before{
+    content:''; position:absolute; inset:0;
+    background:radial-gradient(circle at 70% 20%, rgba(0,168,118,0.16), transparent 60%);
+  }
+  .stage-question{
+    margin-top:22px; font-family:var(--serif);
+    font-size:19px; color:var(--white); font-weight:600; line-height:1.5;
+  }
+  .choices{ margin-top:24px; display:flex; flex-direction:column; gap:10px; }
+  .choice{
+    text-align:left; background:var(--navy-card); border:1px solid var(--line);
+    border-radius:14px; padding:16px 18px; color:var(--white);
+    font-family:var(--sans); font-size:15px; line-height:1.55; cursor:pointer;
+    display:flex; gap:14px; align-items:flex-start;
+    transition:border-color .2s, background .2s, transform .15s;
+    width:100%;
+  }
+  .choice .tag{
+    flex-shrink:0; width:26px; height:26px; border-radius:50%;
+    border:1.5px solid var(--green); color:var(--green-soft);
+    display:flex; align-items:center; justify-content:center;
+    font-size:13px; font-weight:700; margin-top:1px;
+  }
+  .choice:hover{ border-color:var(--green); background:#13334F; transform:translateY(-1px); }
+  .choice:focus-visible{ outline:2px solid var(--green-soft); outline-offset:2px; }
+  .choice .ctext .main{display:block;font-weight:600;}
+  .choice .ctext .sub{display:block;color:var(--grey);font-size:13px;margin-top:4px;}
+
+  /* ---------- Intro ---------- */
+  .intro{
+    flex:1; display:flex; flex-direction:column; justify-content:center;
+    padding:60px 30px 50px; text-align:left;
+  }
+  .intro-eyebrow{
+    color:var(--green-soft); font-size:13px; letter-spacing:.16em; text-transform:uppercase;
+  }
+  .intro h1{
+    font-family:var(--serif); font-size:clamp(30px,8vw,48px);
+    line-height:1.25; margin-top:14px; font-weight:600;
+  }
+  .intro h1 em{color:var(--green-soft);font-style:normal;}
+  .intro p{
+    margin-top:20px; font-size:15.5px; line-height:1.85; color:var(--grey); max-width:520px;
+  }
+  .intro .meta-list{
+    margin-top:24px; display:flex; flex-direction:column; gap:8px;
+  }
+  .intro .meta-list li{
+    font-size:13.5px; color:var(--grey); display:flex; gap:10px; align-items:baseline;
+  }
+  .intro .meta-list li b{color:var(--green-soft); font-weight:600; min-width:18px;}
+  .intro .span-life{
+    margin-top:30px; display:flex; align-items:center; gap:14px; color:var(--grey); font-size:13px;
+  }
+  .span-rail{flex:1;height:1px;background:var(--line);position:relative;}
+  .span-rail::after{
+    content:'';position:absolute;left:0;top:-3px;width:7px;height:7px;border-radius:50%;background:var(--green);
+  }
+  .span-rail::before{
+    content:'';position:absolute;right:0;top:-3px;width:7px;height:7px;border-radius:50%;background:var(--green-soft);
+  }
+  .start-btn{
+    margin-top:38px; align-self:flex-start; background:var(--green); color:#06281D;
+    border:none; font-family:var(--sans); font-weight:700; font-size:16px;
+    padding:15px 34px; border-radius:30px; cursor:pointer;
+    transition:transform .15s, box-shadow .2s; box-shadow:0 8px 24px rgba(0,168,118,0.28);
+  }
+  .start-btn:hover{transform:translateY(-2px);box-shadow:0 12px 30px rgba(0,168,118,0.4);}
+
+  /* ---------- Results ---------- */
+  .results{ flex:1; padding:10px 26px 60px; animation:fadeUp .6s ease both; }
+  .res-hero{ text-align:center; padding:34px 10px 8px; }
+  .res-eyebrow{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--grey);}
+  .res-glyph{font-size:58px;margin-top:14px;}
+  .res-type{
+    font-family:var(--serif); font-size:clamp(26px,6.5vw,36px);
+    margin-top:10px; font-weight:600; color:var(--white);
+  }
+  .res-sub{ margin-top:10px; color:var(--green-soft); font-size:14px; line-height:1.7; max-width:480px; margin-left:auto; margin-right:auto; }
+  .res-second{ margin-top:10px; color:var(--grey); font-size:13px; }
+  .res-second b{ color:var(--white); font-weight:600; }
+
+  .balance-card{
+    margin-top:30px; background:var(--navy-card); border:1px solid var(--line);
+    border-radius:18px; padding:26px; text-align:center;
+  }
+  .balance-label{
+    font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:var(--grey);
+  }
+  .balance-score{
+    font-family:var(--serif); font-size:clamp(44px,12vw,64px); font-weight:700;
+    margin-top:8px; color:var(--green-soft); line-height:1;
+  }
+  .balance-score span{font-size:.4em;color:var(--grey);font-weight:400;margin-left:4px;}
+  .balance-bar{
+    margin-top:18px; height:6px; border-radius:4px; background:rgba(244,247,246,0.08);
+    overflow:hidden; position:relative;
+  }
+  .balance-bar-fill{
+    height:100%; border-radius:4px;
+    background:linear-gradient(90deg, var(--green), var(--green-soft));
+    transition:width 1s cubic-bezier(.4,0,.2,1);
+    width:0;
+  }
+  .balance-desc{
+    margin-top:18px; font-size:13.5px; line-height:1.8; color:var(--white); text-align:left;
+  }
+
+  .section-label{
+    font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:var(--green-soft);
+    margin-top:46px; margin-bottom:14px;
+  }
+  .card{
+    background:var(--navy-card); border:1px solid var(--line); border-radius:16px; padding:22px;
+  }
+  .card + .card{ margin-top:16px; }
+  .card-title{
+    font-family:var(--serif); font-size:18px; font-weight:600; margin-bottom:14px; color:var(--white);
+  }
+  .card-body{ font-size:14px; line-height:1.85; color:var(--white); }
+  .card-body p + p{ margin-top:10px; }
+
+  .wheel-wrap{display:flex;flex-direction:column;align-items:center;}
+  .wheel-wrap svg{max-width:100%;}
+  .wheel-legend{
+    display:grid; grid-template-columns:1fr 1fr; gap:6px 18px;
+    margin-top:18px; width:100%; font-size:12.5px; color:var(--grey);
+  }
+  .wheel-legend div{display:flex;justify-content:space-between;border-bottom:1px solid var(--line);padding:4px 0;}
+  .wheel-legend b{color:var(--white);font-weight:600;}
+
+  /* 任務清單卡 */
+  .task-list{ display:flex; flex-direction:column; gap:12px; margin-top:4px; }
+  .task-row{
+    display:flex; gap:14px; align-items:flex-start; padding:14px 16px;
+    background:var(--navy); border:1px solid var(--line); border-radius:12px;
+  }
+  .task-num{
+    flex-shrink:0; width:30px; height:30px; border-radius:50%;
+    background:rgba(0,168,118,0.15); border:1px solid var(--green);
+    color:var(--green-soft); font-weight:700; font-size:13px;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .task-row b{ display:block; font-size:14.5px; color:var(--white); margin-bottom:4px; }
+  .task-row span{ font-size:13px; color:var(--grey); line-height:1.6; }
+
+  /* 國泰協助流程卡 */
+  .plan-block{ margin-top:18px; }
+  .plan-block:first-child{ margin-top:0; }
+  .plan-goal{
+    font-size:15px; font-weight:700; color:var(--green-soft);
+    display:flex; align-items:center; gap:8px; margin-bottom:12px;
+  }
+  .plan-goal .gtag{
+    font-size:10.5px; color:var(--amber); border:1px solid rgba(232,164,88,0.4);
+    border-radius:10px; padding:2px 8px; font-weight:600; letter-spacing:.04em;
+  }
+  .plan-flow{
+    display:flex; flex-direction:column; gap:0; border-left:2px solid var(--line);
+    margin-left:6px; padding-left:18px;
+  }
+  .plan-step{ position:relative; padding:10px 0 16px; }
+  .plan-step:last-child{ padding-bottom:2px; }
+  .plan-step::before{
+    content:''; position:absolute; left:-24px; top:14px; width:9px; height:9px;
+    border-radius:50%; background:var(--navy-card); border:2px solid var(--green-soft);
+  }
+  .plan-step .step-label{
+    font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--grey); margin-bottom:5px;
+  }
+  .plan-step .step-text{ font-size:13.5px; line-height:1.75; color:var(--white); }
+  .tool-pills{ display:flex; flex-direction:column; gap:8px; margin-top:6px; }
+  .tool-pill{
+    background:rgba(0,168,118,0.08); border:1px solid rgba(0,168,118,0.25);
+    border-radius:10px; padding:10px 14px;
+  }
+  .tool-pill b{ display:block; font-size:13.5px; color:var(--green-soft); margin-bottom:3px; }
+  .tool-pill span{ font-size:12.5px; color:var(--grey); line-height:1.6; }
+
+  .closing-quote{
+    margin-top:38px; text-align:center; padding:28px 18px;
+    border-top:1px solid var(--line); border-bottom:1px solid var(--line);
+  }
+  .closing-quote p{
+    font-family:var(--serif); font-size:15.5px; line-height:1.9; color:var(--green-soft);
+  }
+  .next-checkup-list{ margin-top:14px; display:flex; flex-direction:column; gap:8px; }
+  .next-checkup-list li{
+    font-size:13.5px; color:var(--white); display:flex; gap:10px; align-items:baseline;
+  }
+  .next-checkup-list li b{ color:var(--green-soft); }
+
+  .restart-btn{
+    margin:46px auto 0; display:block; background:transparent; color:var(--green-soft);
+    border:1px solid var(--green); font-family:var(--sans); font-weight:600;
+    font-size:14px; padding:12px 28px; border-radius:24px; cursor:pointer; transition:background .2s;
+  }
+  .restart-btn:hover{ background:rgba(0,168,118,0.12); }
+
+  .progress-hint{
+    margin-top:22px; font-size:12px; color:var(--grey); text-align:right;
+  }
+
+  ::selection{ background:var(--green); color:#06281D; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script>
+/* =========================================================
+   資料模型
+   ========================================================= */
+const DIMENSIONS = [
+  { key: 'finance',      label: '財務',     icon: '💰' },
+  { key: 'career',       label: '事業',     icon: '📈' },
+  { key: 'relationship', label: '關係',     icon: '🤝' },
+  { key: 'health',       label: '健康',     icon: '🩺' },
+  { key: 'education',    label: '教育',     icon: '🎓' },
+  { key: 'spirit',       label: '精神',     icon: '🧘' },
+  { key: 'service',      label: '服務',     icon: '🌱' },
+  { key: 'growth',       label: '個人成長', icon: '🌟' },
+];
+
+const FOMO_TYPES = {
+  wealth:      { label: '財富自由', desc: '你最害怕錯過的，是不必再為錢工作的自由感。' },
+  family:      { label: '家庭關係', desc: '你最害怕錯過的，是與家人緊密相伴的時光。' },
+  experience:  { label: '人生體驗', desc: '你最害怕錯過的，是親身經歷世界的機會。' },
+  achievement: { label: '事業成就', desc: '你最害怕錯過的，是證明自己能力、被世界看見的舞台。' },
+  security:    { label: '安全感',   desc: '你最害怕錯過的，是面對風險時應有的從容與準備。' },
+  legacy:      { label: '人生傳承', desc: '你最害怕錯過的，是留下意義與影響力的機會。' },
+};
+
+// 將八項指標分數對應到 FOMO 類型的得分公式
+function computeFomoScores(scores){
+  return {
+    wealth:      scores.finance * 1.0 + scores.career * 0.3,
+    family:      scores.relationship * 1.0 + scores.spirit * 0.2,
+    experience:  scores.growth * 0.6 + scores.spirit * 0.4 + scores.education * 0.2,
+    achievement: scores.career * 0.7 + scores.growth * 0.3,
+    security:    scores.health * 0.5 + scores.finance * 0.3 + scores.relationship * 0.2,
+    legacy:      scores.service * 0.6 + scores.education * 0.2 + scores.finance * 0.2,
+  };
+}
+
+const STAGES = [
+  {
+    id:1, key:'single', age:'單身規劃期', ageRange:'25–32歲', glyph:'🌱',
+    choices:[
+      { tag:'A', main:'錯過提早累積財富的黃金時間', sub:'擔心同齡人已開始投資，自己卻原地踏步',
+        w:{ finance:3, career:1, growth:1 } },
+      { tag:'B', main:'錯過認識更大世界的機會', sub:'想趁一人自由時多旅行、多嘗試，怕被工作綁住',
+        w:{ growth:3, spirit:2, education:1 } },
+      { tag:'C', main:'錯過在事業上衝刺的時機', sub:'怕現在不拚，未來就少了被看見的機會',
+        w:{ career:3, finance:1, growth:1 } },
+      { tag:'D', main:'錯過建立深刻關係的階段', sub:'怕太專注自己，反而錯過值得珍惜的人',
+        w:{ relationship:3, spirit:1, growth:1 } },
+    ],
+  },
+  {
+    id:2, key:'newlywed', age:'新婚成家期', ageRange:'28–35歲', glyph:'💍',
+    choices:[
+      { tag:'A', main:'錯過與伴侶共同打造未來的默契', sub:'怕忙於工作，疏於經營這段剛起步的關係',
+        w:{ relationship:3, spirit:2 } },
+      { tag:'B', main:'錯過為家庭打好財務地基的時機', sub:'怕婚後開銷增加卻沒提早規劃，影響長期目標',
+        w:{ finance:3, health:1, career:1 } },
+      { tag:'C', main:'錯過兩人還能自由生活的階段', sub:'怕有了責任後，再也沒有現在這樣的自在',
+        w:{ growth:3, relationship:1, spirit:1 } },
+      { tag:'D', main:'錯過趁年輕衝事業的最後階段', sub:'怕成家後重心轉移，事業發展因此放緩',
+        w:{ career:3, finance:1, growth:1 } },
+    ],
+  },
+  {
+    id:3, key:'dink', age:'頂客生活期', ageRange:'30–40歲', glyph:'🥂',
+    choices:[
+      { tag:'A', main:'錯過為自己累積資產的最佳窗口', sub:'雙薪無子的階段最適合投資，怕浪費這段時間',
+        w:{ finance:3, health:1, growth:1 } },
+      { tag:'B', main:'錯過深度體驗生活與世界的機會', sub:'怕日子過得太規律，錯過真正想做的事',
+        w:{ growth:3, spirit:2, education:1 } },
+      { tag:'C', main:'錯過在職場攀升到更高位置的機會', sub:'怕沒有家庭牽絆的優勢沒被好好利用',
+        w:{ career:3, growth:1 } },
+      { tag:'D', main:'錯過好好經營彼此關係的時間', sub:'怕兩人因為各自忙碌而漸漸疏離',
+        w:{ relationship:3, spirit:1, growth:1 } },
+    ],
+  },
+  {
+    id:4, key:'newparent', age:'新手父母期', ageRange:'30–38歲', glyph:'👶',
+    choices:[
+      { tag:'A', main:'錯過孩子最需要陪伴的成長階段', sub:'怕工作占據太多時間，錯過孩子的第一次',
+        w:{ relationship:3, spirit:2, growth:1 } },
+      { tag:'B', main:'錯過為孩子建立保障的關鍵時機', sub:'怕還沒準備好保障，風險就先找上門',
+        w:{ health:3, finance:2, relationship:1 } },
+      { tag:'C', main:'錯過孩子的教育規劃起跑點', sub:'怕現在沒規劃，將來教育費用措手不及',
+        w:{ education:3, finance:2, growth:1 } },
+      { tag:'D', main:'錯過維持自己事業動能的機會', sub:'怕育兒之後，自己的職涯發展就停滯了',
+        w:{ career:3, growth:2 } },
+    ],
+  },
+  {
+    id:5, key:'family', age:'家庭成長期', ageRange:'38–50歲', glyph:'🏠',
+    choices:[
+      { tag:'A', main:'錯過孩子教育最關鍵的投資期', sub:'怕教育金準備不及，影響孩子未來選擇',
+        w:{ education:3, finance:2 } },
+      { tag:'B', main:'錯過為退休生活提早布局的時間', sub:'怕現在只顧家庭，退休準備被一再延後',
+        w:{ finance:3, health:1, growth:1 } },
+      { tag:'C', main:'錯過事業衝向高峰的最後階段', sub:'怕這是最後的衝刺期，錯過就難再追',
+        w:{ career:3, finance:1 } },
+      { tag:'D', main:'錯過與家人創造共同回憶的時光', sub:'怕忙到沒注意，孩子已經長大、父母已經老了',
+        w:{ relationship:3, spirit:2, growth:1 } },
+    ],
+  },
+  {
+    id:6, key:'retire', age:'退休樂享期', ageRange:'50–65歲', glyph:'🌅',
+    choices:[
+      { tag:'A', main:'錯過確保退休現金流穩定的安排', sub:'怕退休後收入中斷，生活品質跟著下降',
+        w:{ finance:3, health:1 } },
+      { tag:'B', main:'錯過趁體力還好時去體驗世界', sub:'怕等到真正空閒，身體已經跟不上心',
+        w:{ growth:3, spirit:2, health:1 } },
+      { tag:'C', main:'錯過將人生經驗傳承給下一代的機會', sub:'怕沒有把累積的智慧與資源好好交棒',
+        w:{ service:3, relationship:2, education:1 } },
+      { tag:'D', main:'錯過回饋社會、活出意義的機會', sub:'怕退休後失去重心，找不到新的價值感',
+        w:{ service:3, spirit:2, growth:1 } },
+    ],
+  },
+  {
+    id:7, key:'centenarian', age:'百歲豐盛期', ageRange:'65歲以上', glyph:'🌸',
+    choices:[
+      { tag:'A', main:'錯過在健康自主時做好照護安排', sub:'怕失能或失智時，沒有人能依照自己的意願做決定',
+        w:{ health:3, finance:1 } },
+      { tag:'B', main:'錯過讓資產依自己心意傳承的安排', sub:'怕沒提早規劃，財富分配引發家人爭議',
+        w:{ finance:3, relationship:1, service:1 } },
+      { tag:'C', main:'錯過享受當下、安心生活的從容', sub:'怕一直擔心未來，反而沒好好活在當下',
+        w:{ spirit:3, health:1, growth:1 } },
+      { tag:'D', main:'錯過持續貢獻與被需要的價值感', sub:'怕年紀大了就被認為「沒用」，失去存在感',
+        w:{ service:3, spirit:2, growth:1 } },
+    ],
+  },
+];
+
+/* =========================================================
+   狀態
+   ========================================================= */
+const state = {
+  screen: 'intro',     // intro | stage | results
+  stageIndex: 0,
+  answers: [],          // { stageId, choiceTag, w }
+};
+
+const root = document.getElementById('app');
+
+/* =========================================================
+   渲染：Timeline rail
+   ========================================================= */
+function renderRail(activeIdx, done){
+  const total = STAGES.length;
+  const pct = done ? 100 : (activeIdx / (total - 1)) * 100;
+  const dots = STAGES.map((s, i) => {
+    let cls = '';
+    if (i < activeIdx || done) cls = 'done';
+    else if (i === activeIdx) cls = 'now';
+    return `<div class="rail-dot ${cls}" data-age="${s.age}"></div>`;
+  }).join('');
+  return `
+    <div class="rail-wrap">
+      <div class="rail">
+        <div class="rail-line"></div>
+        <div class="rail-fill" style="width:${pct}%"></div>
+        <div class="rail-dots">${dots}</div>
+      </div>
+    </div>
+  `;
+}
+
+/* =========================================================
+   渲染：Intro
+   ========================================================= */
+function renderIntro(){
+  root.innerHTML = `
+    <div class="intro">
+      <div class="intro-eyebrow">國泰人壽 × 百歲人生配置系統</div>
+      <h1>找出你<em>真正</em>害怕錯過的事</h1>
+      <p>FOMO Journey 不是人格測驗，也不是保險推薦器。這是一套陪你從畢業走到百歲的人生規劃旅程——透過七個人生階段的重要選擇，找出你心底最在意、最怕錯過的事，再由國泰人壽以人生規劃顧問的角色，協助你完成屬於自己的百歲人生配置。</p>
+      <ul class="meta-list">
+        <li><b>01</b>走過七個人生階段，每階段一道選擇題</li>
+        <li><b>02</b>從財務到精神成長，八項指標全面檢視</li>
+        <li><b>03</b>找出你的核心 FOMO，而非標籤化的人格</li>
+        <li><b>04</b>獲得專屬人生健診報告與未來十年任務</li>
+      </ul>
+      <div class="span-life">
+        <span>畢業</span><div class="span-rail"></div><span>百歲</span>
+      </div>
+      <button class="start-btn" id="startBtn">開始我的人生健診</button>
+    </div>
+  `;
+  document.getElementById('startBtn').addEventListener('click', () => {
+    state.screen = 'stage';
+    state.stageIndex = 0;
+    renderStage();
+  });
+}
+
+/* =========================================================
+   渲染：Stage
+   ========================================================= */
+function renderStage(){
+  const idx = state.stageIndex;
+  const stage = STAGES[idx];
+  const choicesHtml = stage.choices.map(c => `
+    <button class="choice" data-tag="${c.tag}">
+      <span class="tag">${c.tag}</span>
+      <span class="ctext">
+        <span class="main">${c.main}</span>
+        <span class="sub">${c.sub}</span>
+      </span>
+    </button>
+  `).join('');
+
+  root.innerHTML = `
+    ${renderRail(idx, false)}
+    <div class="stage">
+      <div class="stage-eyebrow">人生階段 ${idx + 1} / ${STAGES.length}</div>
+      <div class="stage-age">${stage.age}<small>${stage.ageRange}</small></div>
+      <div class="stage-scene"><span class="glyph">${stage.glyph}</span></div>
+      <div class="stage-question">此刻的你，最害怕錯過什麼？</div>
+      <div class="choices">${choicesHtml}</div>
+      <div class="progress-hint">已完成 ${idx} / ${STAGES.length} 階段</div>
+    </div>
+  `;
+
+  root.querySelectorAll('.choice').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const tag = btn.getAttribute('data-tag');
+      const choice = stage.choices.find(c => c.tag === tag);
+      state.answers.push({ stageId: stage.id, tag, w: choice.w });
+      if (idx < STAGES.length - 1){
+        state.stageIndex += 1;
+        renderStage();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      } else {
+        state.screen = 'results';
+        renderResults();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+    });
+  });
+}
+
+/* =========================================================
+   計分
+   ========================================================= */
+function computeScores(){
+  const raw = {};
+  DIMENSIONS.forEach(d => raw[d.key] = 0);
+  state.answers.forEach(a => {
+    Object.entries(a.w).forEach(([k, v]) => { raw[k] += v; });
+  });
+  // 正規化到 0-100（理論最大值假設約每維度可達 12 分上限抓寬鬆值 14）
+  const maxPossible = 14;
+  const normalized = {};
+  DIMENSIONS.forEach(d => {
+    normalized[d.key] = Math.max(4, Math.min(100, Math.round((raw[d.key] / maxPossible) * 100)));
+  });
+  return { raw, normalized };
+}
+
+function computeBalanceIndex(normalized){
+  const vals = DIMENSIONS.map(d => normalized[d.key]);
+  const mean = vals.reduce((a,b) => a+b, 0) / vals.length;
+  const variance = vals.reduce((a,b) => a + Math.pow(b - mean, 2), 0) / vals.length;
+  const sd = Math.sqrt(variance);
+  // sd 越小代表越平衡 -> balance index 越高。sd 理論上限約 45，做映射
+  const balance = Math.max(0, Math.min(100, Math.round(100 - (sd / 45) * 100)));
+  return { balance, mean, sd };
+}
+
+function topFomo(normalized){
+  const fomoScores = computeFomoScores(normalized);
+  const sorted = Object.entries(fomoScores).sort((a,b) => b[1]-a[1]);
+  return { primary: sorted[0][0], secondary: sorted[1][0], all: sorted };
+}
+
+function rankDimensions(normalized){
+  return DIMENSIONS.map(d => ({ ...d, score: normalized[d.key] }))
+    .sort((a,b) => b.score - a.score);
+}
+
+/* =========================================================
+   雷達圖 SVG
+   ========================================================= */
+function renderRadarSVG(normalized){
+  const size = 280;
+  const center = size / 2;
+  const maxR = 100;
+  const n = DIMENSIONS.length;
+  const angleStep = (Math.PI * 2) / n;
+
+  function pointFor(i, value){
+    const angle = -Math.PI/2 + i * angleStep;
+    const r = (value / 100) * maxR;
+    return [center + r * Math.cos(angle), center + r * Math.sin(angle)];
+  }
+
+  // grid rings
+  const rings = [20,40,60,80,100].map(pct => {
+    const pts = DIMENSIONS.map((_, i) => pointFor(i, pct).join(',')).join(' ');
+    return `<polygon points="${pts}" fill="none" stroke="rgba(244,247,246,0.08)" stroke-width="1"/>`;
+  }).join('');
+
+  // axes
+  const axes = DIMENSIONS.map((_, i) => {
+    const [x,y] = pointFor(i, 100);
+    return `<line x1="${center}" y1="${center}" x2="${x}" y2="${y}" stroke="rgba(244,247,246,0.10)" stroke-width="1"/>`;
+  }).join('');
+
+  // data polygon
+  const dataPts = DIMENSIONS.map((d, i) => pointFor(i, normalized[d.key]).join(',')).join(' ');
+
+  // labels
+  const labels = DIMENSIONS.map((d, i) => {
+    const [x,y] = pointFor(i, 122);
+    return `<text x="${x}" y="${y}" font-size="11" fill="#9FB3C2" text-anchor="middle" dominant-baseline="middle">${d.label}</text>`;
+  }).join('');
+
+  return `
+    <svg viewBox="0 0 ${size+50} ${size+50}" width="100%" height="auto" style="max-width:320px">
+      <g transform="translate(25,25)">
+        ${rings}
+        ${axes}
+        <polygon points="${dataPts}" fill="rgba(0,168,118,0.28)" stroke="#5FD9AF" stroke-width="2"/>
+        ${labels}
+      </g>
+    </svg>
+  `;
+}
+
+/* =========================================================
+   文字生成：人生健診報告 / 任務 / 國泰協助
+   ========================================================= */
+
+const DIM_NARRATIVE = {
+  finance:      { high: '財務累積能力突出，具備長期創造資產的基礎', low: '財務規劃投入較少，資產累積的腳步可以再加快' },
+  career:       { high: '事業發展動能強勁，正處於向上衝刺的階段', low: '事業面的關注度較低，可能還有發展空間未被開發' },
+  relationship: { high: '在關係經營上投入心力，人際與家庭連結緊密', low: '關係面的投入較少，與家人或伴侶的連結可以再加強' },
+  health:       { high: '對健康風險已有意識，懂得提早為身體打底', low: '健康與保障的投入不足，未來可能影響生活品質' },
+  education:    { high: '重視學習與下一代教育，願意為未來提早佈局', low: '教育規劃尚未啟動，長期可能形成準備缺口' },
+  spirit:       { high: '精神生活豐富，懂得在忙碌中保留自己的空間', low: '精神層面的投入較少，容易被現實壓力填滿生活' },
+  service:      { high: '樂於回饋與貢獻，能在助人中找到價值感', low: '服務與貢獻面尚未展開，未來可考慮納入人生規劃' },
+  growth:       { high: '個人成長意識強，持續為自己投資與突破', low: '個人成長的投入較少，可以再多給自己一些探索空間' },
+};
+
+function buildHealthReport(normalized, ranked){
+  const top2 = ranked.slice(0,2);
+  const bottom2 = ranked.slice(-2);
+  const topText = top2.map(d => DIM_NARRATIVE[d.key].high).join('，');
+  const bottomText = bottom2.map(d => DIM_NARRATIVE[d.key].low).join('；');
+  return `<p>你擁有${top2.map(d=>d.label).join('與')}方面的優勢——${topText}。</p>
+  <p>不過，${bottom2.map(d=>d.label).join('及')}的投入相對不足：${bottomText}。長期來看，這些缺口可能影響你百歲人生的整體品質與安心感。</p>`;
+}
+
+function buildBalanceDesc(ranked, balance){
+  const top = ranked[0], second = ranked[1], lowest = ranked[ranked.length-1], lowest2 = ranked[ranked.length-2];
+  let tier;
+  if (balance >= 75) tier = '你的人生八大面向發展相當均衡，各項投入差距不大，這是相當穩健的狀態。';
+  else if (balance >= 50) tier = '你的人生面向大致平衡，但仍有一兩項相對突出或不足，值得留意。';
+  else tier = '你的人生面向發展不均，部分面向被過度重視，部分則明顯被忽略。';
+
+  return `${tier}你的${top.label}及${second.label}表現突出，但${lowest.label}及${lowest2.label}投入較少，建議逐步補足人生其他重要面向。`;
+}
+
+const TASK_LIBRARY = {
+  health:       { title: '建立健康安全網', desc: '提早規劃醫療與保障，降低重大疾病對人生節奏造成的衝擊。' },
+  finance:      { title: '累積退休資產', desc: '透過穩定配置，為退休後的生活打造足夠的財務底氣。' },
+  relationship: { title: '強化家庭保障', desc: '為家庭建立收入中斷時的安全網，讓關係不被現實風險拖累。' },
+  career:       { title: '規劃事業與財務並進', desc: '在衝刺事業的同時，同步建立屬於自己的資產配置節奏。' },
+  education:    { title: '啟動教育金規劃', desc: '提早為下一代的教育需求做準備，避免未來措手不及。' },
+  spirit:       { title: '找回生活的從容', desc: '在忙碌之外，為自己保留精神與心理上的喘息空間。' },
+  service:      { title: '規劃人生貢獻與傳承', desc: '思考如何將累積的資源與經驗，轉化為對他人或社會的價值。' },
+  growth:       { title: '持續投資自己', desc: '在人生下一階段前，找到讓自己持續成長的方式。' },
+};
+
+function buildTenYearTasks(ranked){
+  // 取分數最低的三項作為任務缺口（最需要被補強的）
+  const gaps = ranked.slice(-3).reverse();
+  return gaps.map(g => TASK_LIBRARY[g.key]);
+}
+
+// 國泰協助：人生目標 -> 規劃目的 -> 推薦原因 -> 工具
+const CATHAY_PLANS = {
+  health: {
+    goal: '建立健康安全網', gtag: '健康缺口',
+    purpose: '降低重大疾病或意外造成的人生風險。',
+    reasonTpl: (label) => `你的${label}投入不足，若未來需要高額醫療支出，可能影響退休與財務規劃。`,
+    tools: [
+      { name: '醫療險', desc: '降低重大醫療支出造成的財務衝擊。' },
+      { name: '癌症險', desc: '針對癌症治療提供專項保障，減輕長期負擔。' },
+      { name: '意外險', desc: '應對突發意外造成的醫療與收入損失。' },
+    ],
+  },
+  relationship: {
+    goal: '建立家庭保障', gtag: '關係缺口',
+    purpose: '降低家庭收入中斷造成的風險。',
+    reasonTpl: (label) => `目前${label}相關的保障投入較少，建議提早建立安全網，讓家人不因意外而陷入困境。`,
+    tools: [
+      { name: '壽險', desc: '為家庭預留一筆保障金，降低主要收入中斷的衝擊。' },
+      { name: '家庭保障規劃', desc: '依家庭結構量身設計保障組合，照顧每個成員。' },
+    ],
+  },
+  finance: {
+    goal: '累積退休現金流', gtag: '財務缺口',
+    purpose: '建立退休後穩定收入，維持生活品質。',
+    reasonTpl: (label) => `你的${label}準備仍有空間，越早開始累積，複利效果越明顯，退休後也更有餘裕。`,
+    tools: [
+      { name: '年金險', desc: '建立退休後穩定現金流，降低長壽風險帶來的擔憂。' },
+      { name: '儲蓄險', desc: '透過強制儲蓄機制，逐步累積中長期資產。' },
+      { name: '投資型保單', desc: '結合保障與投資，依風險屬性彈性配置資產。' },
+      { name: '全球資產配置', desc: '分散單一市場風險，提升長期資產成長的穩定性。' },
+    ],
+  },
+  service: {
+    goal: '財富傳承與人生貢獻', gtag: '傳承缺口',
+    purpose: '讓資產依照自己的意願傳承，同時延續人生的影響力。',
+    reasonTpl: (label) => `你重視${label}，但若缺乏提早規劃，資產傳承與分配可能無法完全依照心意進行。`,
+    tools: [
+      { name: '安養信託', desc: '協助高齡資產管理，降低詐騙及失智風險。' },
+      { name: '財產傳承信託', desc: '依個人意願規劃資產分配方式，降低家庭爭議。' },
+    ],
+  },
+  growth: {
+    goal: '高齡照護與生活品質', gtag: '照護缺口',
+    purpose: '降低長照及失能風險，維持百歲人生的生活自主性。',
+    reasonTpl: (label) => `百歲人生需要提前規劃健康照護，目前${label}方面的準備仍可以更完整。`,
+    tools: [
+      { name: '長照險', desc: '應對長期照護需求，減輕家庭照顧壓力。' },
+      { name: '失能保障', desc: '針對失能風險提供生活與醫療支出補貼。' },
+    ],
+  },
+  career:    { alias: 'finance' },
+  education: { alias: 'finance' },
+  spirit:    { alias: 'service' },
+};
+
+function buildCathayPlans(ranked){
+  const gaps = ranked.slice(-3).reverse(); // 最缺乏的三項
+  const usedGoals = new Set();
+  const plans = [];
+  for (const g of gaps){
+    let key = g.key;
+    let plan = CATHAY_PLANS[key];
+    if (plan && plan.alias) plan = CATHAY_PLANS[plan.alias];
+    if (!plan || usedGoals.has(plan.goal)) continue;
+    usedGoals.add(plan.goal);
+    plans.push({ ...plan, reason: plan.reasonTpl(g.label) });
+    if (plans.length >= 3) break;
+  }
+  // 最多 2-3 個規劃
+  return plans.slice(0, plans.length > 2 ? 3 : plans.length);
+}
+
+/* =========================================================
+   渲染：Results
+   ========================================================= */
+function renderResults(){
+  const { normalized } = computeScores();
+  const { balance } = computeBalanceIndex(normalized);
+  const ranked = rankDimensions(normalized);
+  const { primary, secondary } = topFomo(normalized);
+  const primaryType = FOMO_TYPES[primary];
+  const secondaryType = FOMO_TYPES[secondary];
+
+  const legendHtml = DIMENSIONS.map(d => `
+    <div><span>${d.icon} ${d.label}</span><b>${normalized[d.key]}</b></div>
+  `).join('');
+
+  const tasks = buildTenYearTasks(ranked);
+  const taskHtml = tasks.map((t, i) => `
+    <div class="task-row">
+      <div class="task-num">${i+1}</div>
+      <div><b>${t.title}</b><span>${t.desc}</span></div>
+    </div>
+  `).join('');
+
+  const plans = buildCathayPlans(ranked);
+  const planHtml = plans.map(p => `
+    <div class="plan-block">
+      <div class="plan-goal">${p.goal}<span class="gtag">${p.gtag}</span></div>
+      <div class="plan-flow">
+        <div class="plan-step">
+          <div class="step-label">規劃目的</div>
+          <div class="step-text">${p.purpose}</div>
+        </div>
+        <div class="plan-step">
+          <div class="step-label">推薦原因</div>
+          <div class="step-text">${p.reason}</div>
+        </div>
+        <div class="plan-step">
+          <div class="step-label">國泰工具</div>
+          <div class="step-text">
+            <div class="tool-pills">
+              ${p.tools.map(t => `<div class="tool-pill"><b>${t.name}</b><span>${t.desc}</span></div>`).join('')}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  `).join('');
+
+  root.innerHTML = `
+    ${renderRail(STAGES.length - 1, true)}
+    <div class="results">
+
+      <div class="res-hero">
+        <div class="res-eyebrow">你的核心 FOMO</div>
+        <div class="res-type">${primaryType.label}</div>
+        <div class="res-sub">${primaryType.desc}</div>
+        <div class="res-second">次要 FOMO：<b>${secondaryType.label}</b></div>
+      </div>
+
+      <div class="balance-card">
+        <div class="balance-label">Balance Index 人生平衡指數</div>
+        <div class="balance-score">${balance}<span>/ 100</span></div>
+        <div class="balance-bar"><div class="balance-bar-fill" id="balanceFill" style="width:0%"></div></div>
+        <div class="balance-desc">${buildBalanceDesc(ranked, balance)}</div>
+      </div>
+
+      <div class="section-label">人生八軸雷達圖</div>
+      <div class="card wheel-wrap">
+        ${renderRadarSVG(normalized)}
+        <div class="wheel-legend">${legendHtml}</div>
+      </div>
+
+      <div class="section-label">第一張卡片・人生健診報告</div>
+      <div class="card">
+        <div class="card-title">你目前的人生狀態</div>
+        <div class="card-body">${buildHealthReport(normalized, ranked)}</div>
+      </div>
+
+      <div class="section-label">第二張卡片・未來十年人生任務</div>
+      <div class="card">
+        <div class="card-title">現階段最重要的三件事</div>
+        <div class="task-list">${taskHtml}</div>
+      </div>
+
+      <div class="section-label">第三張卡片・國泰如何協助</div>
+      <div class="card">
+        <div class="card-title">依你的人生缺口，量身規劃</div>
+        ${planHtml}
+      </div>
+
+      <div class="closing-quote">
+        <p>FOMO 告訴你今天最害怕失去什麼；國泰陪你規劃未來，讓百歲人生少一點遺憾，多一點從容。</p>
+      </div>
+
+      <div class="section-label">下一次人生健診</div>
+      <div class="card">
+        <div class="card-body">
+          <p>人生每一個階段，害怕錯過的事情都可能改變。建議於以下時刻，重新進行 FOMO Journey，讓人生規劃持續更新：</p>
+          <ul class="next-checkup-list">
+            <li><b>・</b>結婚時</li>
+            <li><b>・</b>成為父母時</li>
+            <li><b>・</b>退休時</li>
+            <li><b>・</b>或人生重大轉變時</li>
+          </ul>
+        </div>
+      </div>
+
+      <button class="restart-btn" id="restartBtn">重新進行 FOMO Journey</button>
+    </div>
+  `;
+
+  requestAnimationFrame(() => {
+    const fill = document.getElementById('balanceFill');
+    if (fill) fill.style.width = balance + '%';
+  });
+
+  document.getElementById('restartBtn').addEventListener('click', () => {
+    state.screen = 'intro';
+    state.stageIndex = 0;
+    state.answers = [];
+    renderIntro();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+}
+
+/* =========================================================
+   初始化
+   ========================================================= */
+renderIntro();
+</script>
+</body>
+</html>
