@@ -225,6 +225,12 @@
   }
   .card-body{ font-size:14px; line-height:1.85; color:var(--white); }
   .card-body p + p{ margin-top:10px; }
+  .card-body .gap-compare{
+    margin-top:14px; padding:12px 14px; background:rgba(232,164,88,0.08);
+    border:1px solid rgba(232,164,88,0.3); border-radius:10px;
+    font-size:13px; line-height:1.75; color:var(--grey);
+  }
+  .card-body .gap-compare b{ color:var(--amber); font-weight:600; }
 
   .wheel-wrap{display:flex;flex-direction:column;align-items:center;}
   .wheel-wrap svg{max-width:100%;}
@@ -329,23 +335,59 @@ const DIMENSIONS = [
 ];
 
 const FOMO_TYPES = {
-  wealth:      { label: '財富自由', desc: '你最害怕錯過的，是不必再為錢工作的自由感。' },
-  family:      { label: '家庭關係', desc: '你最害怕錯過的，是與家人緊密相伴的時光。' },
-  experience:  { label: '人生體驗', desc: '你最害怕錯過的，是親身經歷世界的機會。' },
-  achievement: { label: '事業成就', desc: '你最害怕錯過的，是證明自己能力、被世界看見的舞台。' },
-  security:    { label: '安全感',   desc: '你最害怕錯過的，是面對風險時應有的從容與準備。' },
-  legacy:      { label: '人生傳承', desc: '你最害怕錯過的，是留下意義與影響力的機會。' },
+  wealth:      { label: '財富自由型', desc: '你最害怕錯過的，是財富累積與財務自由的機會。' },
+  achievement: { label: '事業成就型', desc: '你最害怕錯過的，是發揮能力、成就職涯的舞台。' },
+  family:      { label: '家庭守護型', desc: '你最害怕錯過的，是陪伴家人、守護家庭的時光。' },
+  explore:     { label: '人生探索型', desc: '你最害怕錯過的，是探索世界、活出自我成長的機會。' },
+  security:    { label: '安穩保障型', desc: '你最害怕錯過的，是未來面對風險時應有的保障與安全感。' },
+  legacy:      { label: '價值傳承型', desc: '你最害怕錯過的，是讓努力留下長遠價值的機會。' },
+  balanced:    { label: '全人均衡型', desc: '你害怕錯過的不是某一件事，而是讓人生因為過度傾斜某一面向而留下遺憾。' },
 };
 
-// 將八項指標分數對應到 FOMO 類型的得分公式
+// 每個 FOMO 類型在八項指標中的「典型弱項」（結構性低權重，用於人格刻板印象敘事）
+// 與下方計分權重對應：主項0.7 + 次項0.3，其餘列出最具代表性的2-3項典型弱項
+const FOMO_TYPICAL_WEAK = {
+  wealth:      ['relationship','health','service'],
+  achievement: ['health','relationship','spirit'],
+  family:      ['career','growth','finance'],
+  explore:     ['finance','service','education'],
+  security:    ['growth','spirit','service'],
+  legacy:      ['health','career','growth'],
+  balanced:    [], // 平衡型定義上沒有典型弱項
+};
+
+// 將八項指標分數先轉換為「全域分位數」(0~1)，再加權計算 FOMO 類型分數
+// 這一步是關鍵：避免某些指標因為在七階段選項中出現頻率較高、權重較大，
+// 而讓對應的 FOMO 類型結構性地一直勝出（例如原始設計中"財務"與"個人成長"曝光率明顯高於"服務"）
+// 分位數查表：依七階段4^7=16384種組合，預先計算各維度分數分布後得出的近似切點
+const DIM_QUANTILE_BREAKPOINTS = {
+  finance:      [21,29,36,43,50,57,64,71,79,100],
+  career:       [4,7,21,21,29,29,43,50,64,100],
+  relationship: [7,21,21,29,36,43,43,50,64,100],
+  health:       [7,7,14,14,21,21,29,36,43,71],
+  education:    [4,4,7,7,14,21,21,29,36,64],
+  spirit:       [14,21,29,36,36,43,50,57,64,100],
+  service:      [4,4,7,21,21,21,21,29,43,43],
+  growth:       [29,36,43,43,50,50,57,64,71,100],
+};
+function toQuantile(key, value){
+  const bp = DIM_QUANTILE_BREAKPOINTS[key];
+  let idx = bp.findIndex(b => value <= b);
+  if (idx === -1) idx = bp.length - 1;
+  return (idx + 1) / (bp.length + 1); // 約略落在 0~1 之間
+}
+
+// 將八項指標分數對應到 FOMO 類型的得分公式（主項0.7 + 次項0.3，已正規化為同一基準）
 function computeFomoScores(scores){
+  const q = {};
+  Object.keys(scores).forEach(k => { q[k] = toQuantile(k, scores[k]); });
   return {
-    wealth:      scores.finance * 1.0 + scores.career * 0.3,
-    family:      scores.relationship * 1.0 + scores.spirit * 0.2,
-    experience:  scores.growth * 0.6 + scores.spirit * 0.4 + scores.education * 0.2,
-    achievement: scores.career * 0.7 + scores.growth * 0.3,
-    security:    scores.health * 0.5 + scores.finance * 0.3 + scores.relationship * 0.2,
-    legacy:      scores.service * 0.6 + scores.education * 0.2 + scores.finance * 0.2,
+    wealth:      q.finance * 0.7 + q.career * 0.3,
+    achievement: q.career * 0.7 + q.growth * 0.3,
+    family:      q.relationship * 0.7 + q.health * 0.3,
+    explore:     q.growth * 0.7 + q.spirit * 0.3,
+    security:    q.health * 0.7 + q.finance * 0.3,
+    legacy:      q.service * 0.7 + q.education * 0.3,
   };
 }
 
@@ -579,10 +621,18 @@ function computeBalanceIndex(normalized){
   return { balance, mean, sd };
 }
 
-function topFomo(normalized){
+// Balance Index 達到此門檻時，直接歸類為「全人均衡型」，不再比較6型分數
+// 此門檻基於 7階段×4選項=4^7=16384 種組合的窮舉模擬校準：
+// Balance>=75 約佔全體 1.86%，足夠稀有但不會稀有到使用者實際遇不到
+const BALANCED_TYPE_THRESHOLD = 75;
+
+function topFomo(normalized, balance){
+  if (balance >= BALANCED_TYPE_THRESHOLD){
+    return { primary: 'balanced', secondary: null, all: [], isBalanced: true };
+  }
   const fomoScores = computeFomoScores(normalized);
   const sorted = Object.entries(fomoScores).sort((a,b) => b[1]-a[1]);
-  return { primary: sorted[0][0], secondary: sorted[1][0], all: sorted };
+  return { primary: sorted[0][0], secondary: sorted[1][0], all: sorted, isBalanced: false };
 }
 
 function rankDimensions(normalized){
@@ -654,19 +704,47 @@ const DIM_NARRATIVE = {
   growth:       { high: '個人成長意識強，持續為自己投資與突破', low: '個人成長的投入較少，可以再多給自己一些探索空間' },
 };
 
-function buildHealthReport(normalized, ranked){
+function buildHealthReport(normalized, ranked, primary, isBalanced){
   const top2 = ranked.slice(0,2);
-  const bottom2 = ranked.slice(-2);
+  const bottom3 = ranked.slice(-3);
   const topText = top2.map(d => DIM_NARRATIVE[d.key].high).join('，');
+
+  if (isBalanced){
+    // 平衡型：不強行套用「缺口」敘事，改強調穩健與維持
+    const bottomLight = bottom3.map(d => d.label).join('、');
+    return `<p>你擁有${top2.map(d=>d.label).join('與')}方面的優勢——${topText}。</p>
+    <p>更難得的是，你在八項人生指標上沒有明顯的失衡：即使${bottomLight}相對投入稍少，差距也不大。這是經過用心經營才會出現的狀態，建議在人生重大轉折（結婚、生子、退休）時定期回來檢視，讓這份平衡持續維持下去。</p>`;
+  }
+
+  const bottom2 = bottom3.slice(-2);
   const bottomText = bottom2.map(d => DIM_NARRATIVE[d.key].low).join('；');
+  const typicalWeak = FOMO_TYPICAL_WEAK[primary] || [];
+  const actualGapKeys = bottom2.map(d => d.key);
+  const validated = typicalWeak.filter(k => actualGapKeys.includes(k));
+  const surprise = actualGapKeys.filter(k => !typicalWeak.includes(k));
+
+  let compareText = '';
+  if (validated.length > 0 && surprise.length > 0){
+    const vLabel = validated.map(k => DIMENSIONS.find(d=>d.key===k).label).join('、');
+    const sLabel = surprise.map(k => DIMENSIONS.find(d=>d.key===k).label).join('、');
+    compareText = `<p class="gap-compare">身為「${FOMO_TYPES[primary].label}」的人，通常容易忽略<b>${vLabel}</b>——你的實測結果驗證了這個傾向。同時，系統也發現你在<b>${sLabel}</b>的投入比同類型的人更低，這是你個人獨有的隱藏缺口，值得特別留意。</p>`;
+  } else if (validated.length > 0){
+    const vLabel = validated.map(k => DIMENSIONS.find(d=>d.key===k).label).join('、');
+    compareText = `<p class="gap-compare">身為「${FOMO_TYPES[primary].label}」的人，通常容易忽略<b>${vLabel}</b>——你的實測結果也驗證了這個傾向。</p>`;
+  } else if (surprise.length > 0){
+    const sLabel = surprise.map(k => DIMENSIONS.find(d=>d.key===k).label).join('、');
+    compareText = `<p class="gap-compare">有趣的是，你在<b>${sLabel}</b>的投入比一般「${FOMO_TYPES[primary].label}」的人更低，這是屬於你個人的隱藏缺口。</p>`;
+  }
+
   return `<p>你擁有${top2.map(d=>d.label).join('與')}方面的優勢——${topText}。</p>
-  <p>不過，${bottom2.map(d=>d.label).join('及')}的投入相對不足：${bottomText}。長期來看，這些缺口可能影響你百歲人生的整體品質與安心感。</p>`;
+  <p>不過，${bottom2.map(d=>d.label).join('及')}的投入相對不足：${bottomText}。長期來看，這些缺口可能影響你百歲人生的整體品質與安心感。</p>
+  ${compareText}`;
 }
 
 function buildBalanceDesc(ranked, balance){
   const top = ranked[0], second = ranked[1], lowest = ranked[ranked.length-1], lowest2 = ranked[ranked.length-2];
   let tier;
-  if (balance >= 75) tier = '你的人生八大面向發展相當均衡，各項投入差距不大，這是相當穩健的狀態。';
+  if (balance >= BALANCED_TYPE_THRESHOLD) tier = '你的人生八大面向發展相當均衡，各項投入差距不大，這是相當穩健的狀態。';
   else if (balance >= 50) tier = '你的人生面向大致平衡，但仍有一兩項相對突出或不足，值得留意。';
   else tier = '你的人生面向發展不均，部分面向被過度重視，部分則明顯被忽略。';
 
@@ -769,9 +847,9 @@ function renderResults(){
   const { normalized } = computeScores();
   const { balance } = computeBalanceIndex(normalized);
   const ranked = rankDimensions(normalized);
-  const { primary, secondary } = topFomo(normalized);
+  const { primary, secondary, isBalanced } = topFomo(normalized, balance);
   const primaryType = FOMO_TYPES[primary];
-  const secondaryType = FOMO_TYPES[secondary];
+  const secondaryType = secondary ? FOMO_TYPES[secondary] : null;
 
   const legendHtml = DIMENSIONS.map(d => `
     <div><span>${d.icon} ${d.label}</span><b>${normalized[d.key]}</b></div>
@@ -818,7 +896,7 @@ function renderResults(){
         <div class="res-eyebrow">你的核心 FOMO</div>
         <div class="res-type">${primaryType.label}</div>
         <div class="res-sub">${primaryType.desc}</div>
-        <div class="res-second">次要 FOMO：<b>${secondaryType.label}</b></div>
+        <div class="res-second">${secondaryType ? `次要 FOMO：<b>${secondaryType.label}</b>` : '你的人生指標分布均衡，沒有明顯次要傾向'}</div>
       </div>
 
       <div class="balance-card">
@@ -837,7 +915,7 @@ function renderResults(){
       <div class="section-label">第一張卡片・人生健診報告</div>
       <div class="card">
         <div class="card-title">你目前的人生狀態</div>
-        <div class="card-body">${buildHealthReport(normalized, ranked)}</div>
+        <div class="card-body">${buildHealthReport(normalized, ranked, primary, isBalanced)}</div>
       </div>
 
       <div class="section-label">第二張卡片・未來十年人生任務</div>
