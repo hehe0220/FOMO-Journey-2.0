@@ -674,24 +674,15 @@ function renderRadarSVG(normalized){
   // data polygon
   const dataPts = DIMENSIONS.map((d, i) => pointFor(i, normalized[d.key]).join(',')).join(' ');
 
-  // labels + score bubbles
+  // labels
   const labels = DIMENSIONS.map((d, i) => {
-    const [lx, ly] = pointFor(i, 130);
-    const [sx, sy] = pointFor(i, normalized[d.key] > 60 ? normalized[d.key] + 14 : normalized[d.key] + 16);
-    const score = normalized[d.key];
-    const bubble = `
-      <rect x="${sx - 13}" y="${sy - 9}" width="26" height="16" rx="8"
-        fill="rgba(0,168,118,0.18)" stroke="#5FD9AF" stroke-width="0.8"/>
-      <text x="${sx}" y="${sy + 1}" font-size="9.5" fill="#5FD9AF"
-        text-anchor="middle" dominant-baseline="middle" font-weight="600">${score}</text>`;
-    const labelText = `<text x="${lx}" y="${ly + 14}" font-size="11" fill="#9FB3C2"
-      text-anchor="middle" dominant-baseline="middle">${d.label}</text>`;
-    return bubble + labelText;
+    const [x,y] = pointFor(i, 122);
+    return `<text x="${x}" y="${y}" font-size="11" fill="#9FB3C2" text-anchor="middle" dominant-baseline="middle">${d.label}</text>`;
   }).join('');
 
   return `
-    <svg viewBox="0 0 ${size+80} ${size+80}" width="100%" height="auto" style="max-width:340px">
-      <g transform="translate(40,40)">
+    <svg viewBox="0 0 ${size+50} ${size+50}" width="100%" height="auto" style="max-width:320px">
+      <g transform="translate(25,25)">
         ${rings}
         ${axes}
         <polygon points="${dataPts}" fill="rgba(0,168,118,0.28)" stroke="#5FD9AF" stroke-width="2"/>
